@@ -11,7 +11,8 @@ import optparse
 import logging
 import collections
 import yum
-import boto
+import boto3
+import botocore
 import subprocess
 
 lib_root = os.path.dirname(os.path.dirname(__file__))
@@ -21,11 +22,6 @@ import pexpect
 
 sys.path.insert(1, os.path.join(lib_root, "vendor/createrepo"))
 import createrepo
-
-# Hack for creating s3 urls
-urlparse.uses_relative.append('s3')
-urlparse.uses_netloc.append('s3')
-
 
 class LoggerCallback(object):
     def errorlog(self, message):
@@ -43,50 +39,76 @@ class S3Grabber(object):
         base = urlparse.urlsplit(baseurl)
         self.baseurl = baseurl
         self.basepath = base.path.lstrip('/')
-        self.bucket = getclient(base, host)
+        self.s3 = get_s3(host)
+        self.bucket = self.s3.Bucket(base.netloc)
         self.visibility = visibility
 
     def check(self, url):
         if url.startswith(self.baseurl):
             url = url[len(self.baseurl):].lstrip('/')
+
         logging.info("checking if key exists: %s", os.path.join(self.basepath, url))
-        return self.bucket.get_key(os.path.join(self.basepath, url))
+
+        key = os.path.join(self.basepath, url)
+
+        try:
+            obj = self.bucket.Object(key)
+            obj.get()
+            return obj
+        except botocore.exceptions.ClientError as e:
+            if 'NoSuchKey' in e.message:
+                return None
+            else:
+                raise e
 
     def urlgrab(self, url, filename, **kwargs):
         logging.info('urlgrab: %s', filename)
-        key = self.check(url)
-        if not key:
+
+        obj = self.check(url)
+        if not obj:
             raise createrepo.grabber.URLGrabError(14, '%s not found' % url)
-        logging.info('downloading: %s', key.name)
-        key.get_contents_to_filename(filename)
+
+        logging.info('downloading: %s', obj.key)
+
+        self.bucket.download_file(obj.key, filename)
+
         return filename
 
     def syncdir(self, dir, url):
         """Copy all files in dir to url, removing any existing keys."""
         base = os.path.join(self.basepath, url)
-        existing_keys = list(self.bucket.list(base))
-        new_keys = []
+        existing_objects = list(self.bucket.objects.filter(Prefix=base))
+        new_objects = []
+
         for filename in sorted(os.listdir(dir)):
             source = os.path.join(dir, filename)
             target = os.path.join(base, filename)
-            key = self.bucket.new_key(target)
-            key.set_contents_from_filename(source)
-            key.set_acl(self.visibility)
-            new_keys.append(key.name)
-            logging.info('uploading: %s from: %s', key.name, source)
-        for key in existing_keys:
-            if key.name not in new_keys:
-                key.delete()
-                logging.info('removing: %s', key.name)
+            obj = self.bucket.Object(target)
+
+            with open(source, 'rb') as data:
+                obj.upload_fileobj(data)
+
+            obj.Acl().put(ACL=self.visibility)
+
+            new_objects.append(obj.key)
+            logging.info('uploading: %s from: %s', obj.key, source)
+
+        for obj in existing_objects:
+            if obj.key not in new_objects:
+                obj.delete()
+                logging.info('removing: %s', obj.key)
 
     def upload(self, file, url):
         """Copy file to url."""
         target = os.path.join(self.basepath, url)
         logging.info("upload: %s to %s", (file, target))
-        filename = os.path.basename(file)
-        key = self.bucket.new_key(target)
-        key.set_contents_from_filename(file)
-        key.set_acl(self.visibility)
+
+        obj = self.bucket.Object(target)
+
+        with open(file, 'rb') as data:
+                obj.upload_fileobj(data)
+
+        obj.Acl().put(ACL=self.visibility)
 
 
 class FileGrabber(object):
@@ -106,18 +128,9 @@ class FileGrabber(object):
         return filename
 
 
-def getclient(base, host_url):
-    if os.getenv('AWS_ACCESS_KEY'):
-        return boto.connect_s3(
-            os.getenv('AWS_ACCESS_KEY'),
-            os.getenv('AWS_SECRET_KEY'),
-            host=host_url
-        ).get_bucket(base.netloc)
-    else:
-        return boto.connect_s3(
-            host=host_url
-        ).get_bucket(base.netloc)
-
+def get_s3(host_url):
+    session = boto3.session.Session()
+    return session.resource('s3', endpoint_url=host_url)
 
 def sign(rpmfile):
     """Requires a proper ~/.rpmmacros file. See <http://fedoranews.org/tchung/gpg/>"""
