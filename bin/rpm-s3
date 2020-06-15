@@ -3,13 +3,11 @@
 """
 import os
 import sys
-import time
 import urllib.parse
 import tempfile
 import shutil
 import optparse
 import logging
-import collections
 import yum
 import boto3
 import botocore
@@ -56,10 +54,9 @@ class S3Grabber(object):
             obj.get()
             return obj
         except botocore.exceptions.ClientError as e:
-            if 'NoSuchKey' in e.message:
+            if 'NoSuchKey' in str(e):
                 return None
-            else:
-                raise e
+            raise
 
     def urlgrab(self, url, filename, **kwargs):
         logging.info('urlgrab: %s', filename)
@@ -101,7 +98,7 @@ class S3Grabber(object):
     def upload(self, file, url):
         """Copy file to url."""
         target = os.path.join(self.basepath, url)
-        logging.info("upload: %s to %s", (file, target))
+        logging.info("upload: %s to %s", file, target)
 
         obj = self.bucket.Object(target)
 
@@ -145,7 +142,7 @@ def sign(rpmfile):
     except pexpect.EOF as e:
         print("Unable to sign package '%s' - %s" % (rpmfile, child.before))
         logging.error("Unable to sign package: %s", e)
-        exit(1)
+        sys.exit(1)
 
 def sign_metadata(repomdfile):
     """Requires a proper ~/.rpmmacros file. See <http://fedoranews.org/tchung/gpg/>"""
@@ -157,7 +154,7 @@ def sign_metadata(repomdfile):
     except subprocess.CalledProcessError as e:
         print("Unable to sign repository metadata '%s'" % (repomdfile))
         logging.error("Unable to sign repository metadata: %s", e)
-        exit(1)
+        sys.exit(1)
 
 def setup_repository(repo, repopath):
     """Make sure a repo is present at repopath"""
