@@ -214,17 +214,8 @@ def update_repodata(repopath, rpmfiles, options):
         # don't put a base url in <location> tags of primary.xml.gz
         newpkg._baseurl = None
         older_pkgs = yumbase.pkgSack.searchNevra(name=newpkg.name)
+        new_packages.extend(older_pkgs)
 
-        # Remove older versions of this package (or if it's the same version)
-        for i, older in enumerate(reversed(older_pkgs), 1):
-            if i > options.keep or older.pkgtup == newpkg.pkgtup:
-                yumbase.pkgSack.delPackage(older)
-                logging.info('ignoring: %s', older.ui_nevra)
-        ## The package is now removed if it has the same name
-        ## If we passed -d true, then we don't want to add it back
-        ## if we didn't then we wnat to include the package
-        if options.delete is False:
-            new_packages.append(newpkg)
     mdconf.pkglist = list(yumbase.pkgSack) + new_packages
 
     # Write out new metadata to tmpdir
@@ -263,7 +254,6 @@ if __name__ == '__main__':
     parser = optparse.OptionParser()
     parser.add_option('-b', '--bucket', default='my-bucket')
     parser.add_option('-p', '--repopath', default='')
-    parser.add_option('-k', '--keep', type='int', default=2)
     parser.add_option('-v', '--verbose', action='count', default=0)
     parser.add_option('--visibility', default='private')
     parser.add_option('-s', '--sign', action='count', default=0)
