@@ -214,7 +214,18 @@ def update_repodata(repopath, rpmfiles, options):
         # don't put a base url in <location> tags of primary.xml.gz
         newpkg._baseurl = None
         older_pkgs = yumbase.pkgSack.searchNevra(name=newpkg.name)
-        new_packages.extend(older_pkgs)
+
+        # Remove older versions of this package (or if it's the same version)
+        for older in older_pkgs:
+            if older.pkgtup == newpkg.pkgtup:
+                yumbase.pkgSack.delPackage(older)
+                logging.info('ignoring: %s', older.ui_nevra)
+
+        # The package is now removed if it has the same name
+        # If we passed -d, then we don't want to add it back
+        # if we didn't then we wnat to include the package
+        if not options.delete:
+            new_packages.append(newpkg)
 
     mdconf.pkglist = list(yumbase.pkgSack) + new_packages
 
