@@ -200,6 +200,9 @@ def update_repodata(repopath, rpmfiles, options):
     mdgen = createrepo.MetaDataGenerator(mdconf, LoggerCallback())
     mdgen.tempdir = tmpdir
 
+    # Log old package list
+    logging.info("Previous package list: %s", list(yumbase.pkgSack))
+
     # Combine existing package sack with new rpm file list
     new_packages = []
     for rpmfile in rpmfiles:
@@ -231,8 +234,10 @@ def update_repodata(repopath, rpmfiles, options):
         if not options.delete:
             new_packages.append(newpkg)
 
-    logging.info("Previous package list: %s", list(yumbase.pkgSack))
     mdconf.pkglist = list(yumbase.pkgSack) + new_packages
+
+    # Log old package list
+    logging.info("New package list: %s", mdconf.pkglist)
 
     # Write out new metadata to tmpdir
     mdgen.doPkgMetadata()
