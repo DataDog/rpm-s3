@@ -236,7 +236,7 @@ def update_repodata(repopath, rpmfiles, options):
 
     mdconf.pkglist = list(yumbase.pkgSack) + new_packages
 
-    # Log old package list
+    # Log new package list
     logging.info("New package list: %s", mdconf.pkglist)
 
     # Write out new metadata to tmpdir
