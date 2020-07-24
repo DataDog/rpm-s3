@@ -184,6 +184,10 @@ def update_repodata(repopath, rpmfiles, options):
     repo = yumbase.add_enable_repo('s3')
     repo._grab = s3grabber
 
+    # Add all needed architectures to the repo list
+    for arch in options.archs:
+        yumbase.arch.archlist.append(arch)
+
     setup_repository(repo, repopath)
 
     # Ensure that missing base path doesn't cause trouble
@@ -195,6 +199,9 @@ def update_repodata(repopath, rpmfiles, options):
     mdconf.directory = tmpdir
     mdgen = createrepo.MetaDataGenerator(mdconf, LoggerCallback())
     mdgen.tempdir = tmpdir
+
+    # Log old package list
+    logging.info("Previous package list: %s", list(yumbase.pkgSack))
 
     # Combine existing package sack with new rpm file list
     new_packages = []
@@ -229,6 +236,9 @@ def update_repodata(repopath, rpmfiles, options):
 
     mdconf.pkglist = list(yumbase.pkgSack) + new_packages
 
+    # Log new package list
+    logging.info("New package list: %s", mdconf.pkglist)
+
     # Write out new metadata to tmpdir
     mdgen.doPkgMetadata()
     mdgen.doRepoMetadata()
@@ -260,6 +270,8 @@ def main(options, args):
 
     update_repodata(options.repopath, args, options)
 
+def get_comma_separated_args(option, opt, value, parser):
+    setattr(parser.values, option.dest, value.split(','))
 
 if __name__ == '__main__':
     parser = optparse.OptionParser()
@@ -272,6 +284,7 @@ if __name__ == '__main__':
     parser.add_option('-d', '--delete', action='store_true', default=False)
     parser.add_option('-r', '--region')
     parser.add_option('-c', '--host', default='s3-eu-central-1.amazonaws.com')
+    parser.add_option('-a', '--archs', type='string', default=[], action='callback', callback=get_comma_separated_args)
     options, args = parser.parse_args()
     if options.region is not None and options.host != 's3-eu-central-1.amazonaws.com':
         parser.error('region and host are mutually exclusive')
