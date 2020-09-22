@@ -196,6 +196,7 @@ def update_repodata(repopath, rpmfiles, options):
 
     # Create metadata generator
     mdconf = createrepo.MetaDataConfig()
+    mdconf.sumtype = options.sumtype
     mdconf.directory = tmpdir
     mdgen = createrepo.MetaDataGenerator(mdconf, LoggerCallback())
     mdgen.tempdir = tmpdir
@@ -285,6 +286,7 @@ if __name__ == '__main__':
     parser.add_option('-r', '--region')
     parser.add_option('-c', '--host', default='s3-eu-central-1.amazonaws.com')
     parser.add_option('-a', '--archs', type='string', default=[], action='callback', callback=get_comma_separated_args)
+    parser.add_option('-t', '--sumtype', default='sha256')
     options, args = parser.parse_args()
     if options.region is not None and options.host != 's3-eu-central-1.amazonaws.com':
         parser.error('region and host are mutually exclusive')
