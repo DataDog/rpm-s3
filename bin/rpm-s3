@@ -212,7 +212,7 @@ def update_repodata(repopath, rpmfiles, options):
         rpmfile = os.path.realpath(rpmfile)
         logging.info("rpmfile: %s", rpmfile)
 
-        if options.sign and not options.no_rpm_resign:
+        if options.sign and options.rpm_resign:
             sign(rpmfile)
 
         mdgen._grabber = filegrabber
@@ -283,7 +283,7 @@ if __name__ == '__main__':
     parser.add_option('-v', '--verbose', action='count', default=0)
     parser.add_option('--visibility', default='private')
     parser.add_option('-s', '--sign', action='count', default=0)
-    parser.add_option('-n', '--no-rpm-resign', action='store_true', default=False)
+    parser.add_option('-n', '--rpm-resign', action='store_true', default=False)
     parser.add_option('-k', '--metadata-signing-key', default='')
     parser.add_option('-l', '--logfile')
     parser.add_option('-d', '--delete', action='store_true', default=False)
