@@ -161,6 +161,20 @@ def sign_metadata(repomdfile, key):
         logging.error("Unable to sign repository metadata: %s", e)
         exit(1)
 
+def store_metadata_signing_key(repodata_path, key):
+    # zypper can use repomd.xml.key to verify repodata signature - this is especially
+    # useful with versions of zypper < 1.14.8, which don't take keys from gpgkey= entries
+    # in repofiles for repodata signature validation.
+    cmd = ["gpg", "-o", os.path.join(repodata_path, "repomd.xml.key"), "--armor", "--export", key]
+    logging.info(cmd)
+    try:
+        subprocess.check_call(cmd)
+        logging.info("Successfully added repository metadata signing key")
+    except subprocess.CalledProcessError, e:
+        print "Unable to add repository metadata signing key '%s'" % (key)
+        logging.error("Unable to add repository metadata signing key: %s", e)
+        exit(1)
+
 def setup_repository(repo, repopath):
     """Make sure a repo is present at repopath"""
     key = repo._grab.check("repodata/repomd.xml")
@@ -257,6 +271,8 @@ def update_repodata(repopath, rpmfiles, options):
     # Generate repodata/repomd.xml.asc
     if options.sign:
         sign_metadata(os.path.join(tmpdir, 'repodata', 'repomd.xml'), options.metadata_signing_key)
+        if options.repodata_store_public_key:
+            store_metadata_signing_key(os.path.join(tmpdir, 'repodata'), options.metadata_signing_key)
 
     # Replace metadata on s3
     s3grabber.syncdir(os.path.join(tmpdir, 'repodata'), 'repodata')
@@ -291,6 +307,7 @@ if __name__ == '__main__':
     parser.add_option('-c', '--host', default='s3-eu-central-1.amazonaws.com')
     parser.add_option('-a', '--archs', type='string', default=[], action='callback', callback=get_comma_separated_args)
     parser.add_option('-t', '--sumtype', default='sha256')
+    parser.add_option('--repodata-store-public-key', action='store_true', default=False)
     options, args = parser.parse_args()
     if options.region is not None and options.host != 's3-eu-central-1.amazonaws.com':
         parser.error('region and host are mutually exclusive')
