@@ -166,7 +166,7 @@ def store_metadata_signing_key(repodata_path, key):
     # useful with versions of zypper < 1.14.8, which don't take keys from gpgkey= entries
     # in repofiles for repodata signature validation.
     cmd = ["gpg", "-o", os.path.join(repodata_path, "repomd.xml.key"), "--armor", "--export", key]
-    logging.info(cmd)
+    logging.info("Adding repository metadata signing key with command %s", cmd)
     try:
         subprocess.check_call(cmd)
         logging.info("Successfully added repository metadata signing key")
