@@ -143,7 +143,7 @@ def sign(rpmfile):
         child.sendline('')
         child.expect(pexpect.EOF)
     except pexpect.EOF as e:
-        print "Unable to sign package '%s' - %s" % (rpmfile, child.before)
+        print("Unable to sign package '%s' - %s" % rpmfile, child.before)
         logging.error("Unable to sign package: %s", e)
         exit(1)
 
@@ -157,7 +157,7 @@ def sign_metadata(repomdfile, key):
         subprocess.check_call(cmd)
         logging.info("Successfully signed repository metadata file")
     except subprocess.CalledProcessError as e:
-        print "Unable to sign repository metadata '%s'" % (repomdfile)
+        print("Unable to sign repository metadata '%s'" % repomdfile)
         logging.error("Unable to sign repository metadata: %s", e)
         exit(1)
 
@@ -171,7 +171,7 @@ def store_metadata_signing_key(repodata_path, key):
         subprocess.check_call(cmd)
         logging.info("Successfully added repository metadata signing key")
     except subprocess.CalledProcessError as e:
-        print "Unable to add repository metadata signing key '%s'" % (key)
+        print("Unable to add repository metadata signing key '%s'" % key)
         logging.error("Unable to add repository metadata signing key: %s", e)
         exit(1)
 
