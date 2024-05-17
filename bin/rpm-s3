@@ -156,7 +156,7 @@ def sign_metadata(repomdfile, key):
     try:
         subprocess.check_call(cmd)
         logging.info("Successfully signed repository metadata file")
-    except subprocess.CalledProcessError, e:
+    except subprocess.CalledProcessError as e:
         print "Unable to sign repository metadata '%s'" % (repomdfile)
         logging.error("Unable to sign repository metadata: %s", e)
         exit(1)
@@ -170,7 +170,7 @@ def store_metadata_signing_key(repodata_path, key):
     try:
         subprocess.check_call(cmd)
         logging.info("Successfully added repository metadata signing key")
-    except subprocess.CalledProcessError, e:
+    except subprocess.CalledProcessError as e:
         print "Unable to add repository metadata signing key '%s'" % (key)
         logging.error("Unable to add repository metadata signing key: %s", e)
         exit(1)
