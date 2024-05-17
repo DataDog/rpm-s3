@@ -142,7 +142,7 @@ def sign(rpmfile):
         child.expect('Enter pass phrase: ')
         child.sendline('')
         child.expect(pexpect.EOF)
-    except pexpect.EOF, e:
+    except pexpect.EOF(e):
         print "Unable to sign package '%s' - %s" % (rpmfile, child.before)
         logging.error("Unable to sign package: %s", e)
         exit(1)
