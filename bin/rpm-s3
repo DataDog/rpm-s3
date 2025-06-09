@@ -186,29 +186,35 @@ def setup_repository(repo, repopath):
         repo._grab.syncdir(path_to_empty_repo, "repodata")
 
 def update_repodata(repopath, rpmfiles, options):
-    logging.info('rpmfiles: %s', rpmfiles)
+    # logging.info('rpmfiles: %s', rpmfiles)
     tmpdir = tempfile.mkdtemp()
-    s3base = urlparse.urlunsplit(('s3', options.bucket, repopath, '', ''))
-    s3grabber = S3Grabber(s3base, options.visibility, options.host)
-    filegrabber = FileGrabber("file://" + os.getcwd())
+    # s3base = urlparse.urlunsplit(('s3', options.bucket, repopath, '', ''))
+    # s3grabber = S3Grabber(s3base, options.visibility, options.host)
+    # filegrabber = FileGrabber("file://" + os.getcwd())
 
-    # Set up temporary repo that will fetch repodata from s3
-    yumbase = yum.YumBase()
-    yumbase.preconf.disabled_plugins = '*'
-    yumbase.conf.cachedir = os.path.join(tmpdir, 'cache')
-    yumbase.repos.disableRepo('*')
-    repo = yumbase.add_enable_repo('s3')
-    repo._grab = s3grabber
+    # # Set up temporary repo that will fetch repodata from s3
+    # yumbase = yum.YumBase()
+    # yumbase.preconf.disabled_plugins = '*'
+    # yumbase.conf.cachedir = os.path.join(tmpdir, 'cache')
+    # yumbase.repos.disableRepo('*')
+    # repo = yumbase.add_enable_repo('s3')
+    # repo._grab = s3grabber
 
     # Add all needed architectures to the repo list
-    for arch in options.archs:
-        yumbase.arch.archlist.append(arch)
+    # for arch in options.archs:
+    #     yumbase.arch.archlist.append(arch)
 
-    setup_repository(repo, repopath)
+    # setup_repository(repo, repopath)
 
-    # Ensure that missing base path doesn't cause trouble
-    repo._sack = yum.sqlitesack.YumSqlitePackageSack(
-        createrepo.readMetadata.CreaterepoPkgOld)
+    # # Ensure that missing base path doesn't cause trouble
+    # repo._sack = yum.sqlitesack.YumSqlitePackageSack(
+    #     createrepo.readMetadata.CreaterepoPkgOld)
+
+    repodata_tmp = os.path.join(tmpdir, 'repodata')
+    os.makedirs(repodata_tmp)
+    metadata = os.path.join(tmpdir, '.repodata')
+    # s3grabber.syncdir('repodata', repodata_tmp)
+    shutil.copytree("/tmp/metadata", metadata)
 
     # Create metadata generator
     mdconf = createrepo.MetaDataConfig()
@@ -217,55 +223,55 @@ def update_repodata(repopath, rpmfiles, options):
     mdgen = createrepo.MetaDataGenerator(mdconf, LoggerCallback())
     mdgen.tempdir = tmpdir
 
-    # Log old package list
-    logging.info("Previous package list: %s", list(yumbase.pkgSack))
+    # # Log old package list
+    # logging.info("Previous package list: %s", list(yumbase.pkgSack))
 
-    # Combine existing package sack with new rpm file list
-    new_packages = []
-    for rpmfile in rpmfiles:
-        rpmfile = os.path.realpath(rpmfile)
-        logging.info("rpmfile: %s", rpmfile)
+    # # Combine existing package sack with new rpm file list
+    # new_packages = []
+    # for rpmfile in rpmfiles:
+    #     rpmfile = os.path.realpath(rpmfile)
+    #     logging.info("rpmfile: %s", rpmfile)
 
-        if options.sign and options.rpm_resign:
-            sign(rpmfile)
+    #     if options.sign and options.rpm_resign:
+    #         sign(rpmfile)
 
-        mdgen._grabber = filegrabber
-        # please, don't mess with my path in the <location> tags of primary.xml.gz
-        relative_path = "."
-        newpkg = mdgen.read_in_package("file://" + rpmfile, relative_path)
-        mdgen._grabber = s3grabber
+    #     mdgen._grabber = filegrabber
+    #     # please, don't mess with my path in the <location> tags of primary.xml.gz
+    #     relative_path = "."
+    #     newpkg = mdgen.read_in_package("file://" + rpmfile, relative_path)
+    #     mdgen._grabber = s3grabber
 
-        # don't put a base url in <location> tags of primary.xml.gz
-        newpkg._baseurl = None
-        older_pkgs = yumbase.pkgSack.searchNevra(name=newpkg.name)
+    #     # don't put a base url in <location> tags of primary.xml.gz
+    #     newpkg._baseurl = None
+    #     older_pkgs = yumbase.pkgSack.searchNevra(name=newpkg.name)
 
-        # Remove older versions of this package (or if it's the same version)
-        for older in older_pkgs:
-            if older.pkgtup == newpkg.pkgtup:
-                yumbase.pkgSack.delPackage(older)
-                logging.info('ignoring: %s', older.ui_nevra)
+    #     # Remove older versions of this package (or if it's the same version)
+    #     for older in older_pkgs:
+    #         if older.pkgtup == newpkg.pkgtup:
+    #             yumbase.pkgSack.delPackage(older)
+    #             logging.info('ignoring: %s', older.ui_nevra)
 
-        # The package is now removed if it has the same name
-        # If we passed -d, then we don't want to add it back
-        # if we didn't then we wnat to include the package
-        if not options.delete:
-            new_packages.append(newpkg)
+    #     # The package is now removed if it has the same name
+    #     # If we passed -d, then we don't want to add it back
+    #     # if we didn't then we wnat to include the package
+    #     if not options.delete:
+    #         new_packages.append(newpkg)
 
-    mdconf.pkglist = list(yumbase.pkgSack) + new_packages
+    # mdconf.pkglist = list(yumbase.pkgSack) + new_packages
 
-    # Log new package list
-    logging.info("New package list: %s", mdconf.pkglist)
+    # # Log new package list
+    # logging.info("New package list: %s", mdconf.pkglist)
 
     # Write out new metadata to tmpdir
-    mdgen.doPkgMetadata()
+    # mdgen.doPkgMetadata()
     mdgen.doRepoMetadata()
     mdgen.doFinalMove()
 
-    # Upload rpm files to destination
-    for rpmfile in rpmfiles:
-        rpmfile = os.path.realpath(rpmfile)
-        logging.info("rpmfile: %s", rpmfile)
-        s3grabber.upload(rpmfile, os.path.basename(rpmfile))
+    # # Upload rpm files to destination
+    # for rpmfile in rpmfiles:
+    #     rpmfile = os.path.realpath(rpmfile)
+    #     logging.info("rpmfile: %s", rpmfile)
+    #     s3grabber.upload(rpmfile, os.path.basename(rpmfile))
 
 
     # Generate repodata/repomd.xml.asc
@@ -275,9 +281,9 @@ def update_repodata(repopath, rpmfiles, options):
             store_metadata_signing_key(os.path.join(tmpdir, 'repodata'), options.metadata_signing_key)
 
     # Replace metadata on s3
-    s3grabber.syncdir(os.path.join(tmpdir, 'repodata'), 'repodata')
+    # s3grabber.syncdir(os.path.join(tmpdir, 'repodata'), 'repodata')
 
-    shutil.rmtree(tmpdir)
+    # shutil.rmtree(tmpdir)
 
 def main(options, args):
     loglevel = ('WARNING', 'INFO', 'DEBUG')[min(2, options.verbose)]

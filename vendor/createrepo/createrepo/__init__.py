@@ -915,6 +915,7 @@ class MetaDataGenerator:
 
         repopath = os.path.join(self.conf.outputdir, self.conf.tempdir)
         repofilepath = os.path.join(repopath, self.conf.repomdfile)
+        print("DEBUG CORRUPT REPO - repofilepath", repofilepath)
 
         if self.conf.content_tags:
             repomd.tags['content'] = self.conf.content_tags
