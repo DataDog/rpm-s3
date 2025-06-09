@@ -185,7 +185,7 @@ def setup_repository(repo, repopath):
         logging.info("Empty repository detected. Initializing with empty repodata...")
         repo._grab.syncdir(path_to_empty_repo, "repodata")
 
-def update_repodata(repopath, rpmfiles, options):
+def update_repodata(repopath, agent_rel_mgmt_path, options):
     # logging.info('rpmfiles: %s', rpmfiles)
     tmpdir = tempfile.mkdtemp()
     # s3base = urlparse.urlunsplit(('s3', options.bucket, repopath, '', ''))
@@ -279,7 +279,7 @@ def update_repodata(repopath, rpmfiles, options):
         sign_metadata(os.path.join(tmpdir, 'repodata', 'repomd.xml'), options.metadata_signing_key)
         if options.repodata_store_public_key:
             store_metadata_signing_key(os.path.join(tmpdir, 'repodata'), options.metadata_signing_key)
-
+    shutil.copytree(tmpdir, agent_rel_mgmt_path[0]+'/tmp')
     # Replace metadata on s3
     # s3grabber.syncdir(os.path.join(tmpdir, 'repodata'), 'repodata')
 
