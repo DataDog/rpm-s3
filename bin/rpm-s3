@@ -279,6 +279,37 @@ def update_repodata(repopath, rpmfiles, options):
 
     shutil.rmtree(tmpdir)
 
+def regenerate_repodata(options):
+    """ Regenerates the repodata folder for a corrupt repository
+        The function expects the 3 xml.gz files to be in /tmp/.metadata and will generate the output in <agent-rel-mgmt-path>/tmp/repodata
+        Make sure --regen-repodata and --agent-rel-mgmt-path are set. Use --sign to sign the repomd.xml file and produce the repomd.xml.asc file
+    """
+    
+    tmpdir = tempfile.mkdtemp()
+    repodata_output = os.path.join(tmpdir, 'repodata')
+    os.makedirs(repodata_output)
+    repodata_input = os.path.join(tmpdir, '.repodata')
+    shutil.copytree("/tmp/metadata", repodata_input)
+
+    # Create metadata generator
+    mdconf = createrepo.MetaDataConfig()
+    mdconf.sumtype = options.sumtype
+    mdconf.directory = tmpdir
+    mdgen = createrepo.MetaDataGenerator(mdconf, LoggerCallback())
+    mdgen.tempdir = tmpdir
+
+    # Generate metadata from existing xml.gz files
+    mdgen.doRepoMetadata()
+    mdgen.doFinalMove()
+
+    # Generate repodata/repomd.xml.asc
+    if options.sign:
+        sign_metadata(os.path.join(tmpdir, 'repodata', 'repomd.xml'), options.metadata_signing_key)
+        if options.repodata_store_public_key:
+            store_metadata_signing_key(os.path.join(tmpdir, 'repodata'), options.metadata_signing_key)
+
+    shutil.copytree(tmpdir, options.agent_rel_mgmt_path +'/tmp')
+
 def main(options, args):
     loglevel = ('WARNING', 'INFO', 'DEBUG')[min(2, options.verbose)]
     logging.basicConfig(
@@ -287,7 +318,10 @@ def main(options, args):
         format='%(asctime)s %(levelname)s %(message)s',
     )
 
-    update_repodata(options.repopath, args, options)
+    if options.regen_repodata:
+        regenerate_repodata(options)
+    else:
+        update_repodata(options.repopath, args, options)
 
 def get_comma_separated_args(option, opt, value, parser):
     setattr(parser.values, option.dest, value.split(','))
@@ -308,6 +342,8 @@ if __name__ == '__main__':
     parser.add_option('-a', '--archs', type='string', default=[], action='callback', callback=get_comma_separated_args)
     parser.add_option('-t', '--sumtype', default='sha256')
     parser.add_option('--repodata-store-public-key', action='store_true', default=False)
+    parser.add_option('--regen-repodata', action='store_true', default=False)
+    parser.add_option('--agent-rel-mgmt-path', type='string', default="")
     options, args = parser.parse_args()
     if options.region is not None and options.host != 's3-eu-central-1.amazonaws.com':
         parser.error('region and host are mutually exclusive')
